@@ -1,8 +1,12 @@
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./smart_tag.db');
+const { createClient } = require('@libsql/client');
 
-db.serialize(() => {
-  db.run(`
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:local.db',
+  authToken: process.env.TURSO_AUTH_TOKEN || ''
+});
+
+async function initDB() {
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
@@ -12,7 +16,7 @@ db.serialize(() => {
     )
   `);
 
-  db.run(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS pet_profiles (
       tag_id TEXT PRIMARY KEY,
       name TEXT,
@@ -24,42 +28,13 @@ db.serialize(() => {
       phone TEXT,
       whatsapp TEXT,
       health_note TEXT,
-      photo_url TEXT,
-      FOREIGN KEY(tag_id) REFERENCES tags(id)
+      photo_url TEXT
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS car_park_profiles (
-      tag_id TEXT PRIMARY KEY,
-      plate TEXT,
-      status_message TEXT,
-      phone TEXT,
-      whatsapp TEXT,
-      hide_phone INTEGER DEFAULT 0,
-      FOREIGN KEY(tag_id) REFERENCES tags(id)
-    )
-  `);
+  console.log("Turso bulut veritabani tablolari basariyla hazirlandi.");
+}
 
-  db.get("SELECT COUNT(*) as count FROM tags", (err, row) => {
-    if (row && row.count === 0) {
-      console.log("Demo kayıtlar yükleniyor...");
-      
-      db.run("INSERT INTO tags (id, type, title, edit_pin) VALUES ('tarcin-001', 'pet', 'Tarçın Pati Kimliği', '1234')");
-      db.run(`INSERT INTO pet_profiles VALUES (
-        'tarcin-001', 'TARÇIN', 'Golden Melez', '2 Yaşında', 'Erkek', '981098102938472',
-        'Karanfil Sokak, Ümraniye / İstanbul', '+905321112233', '905321112233',
-        'İnsan canlısıdır, ısırmaz. Düzenli alerji ilacı kullanıyor.',
-        'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=600&q=80'
-      )`);
-
-      db.run("INSERT INTO tags (id, type, title, edit_pin) VALUES ('park-34abc', 'car_park', '34 ABC 789 Park QR', '5678')");
-      db.run(`INSERT INTO car_park_profiles VALUES (
-        'park-34abc', '34 ABC 789', 'Kısa süreli park halindeyim. Rahatsızlık verdiysem arayabilirsiniz.',
-        '+905321112233', '905321112233', 0
-      )`);
-    }
-  });
-});
+initDB().catch(console.error);
 
 module.exports = db;
